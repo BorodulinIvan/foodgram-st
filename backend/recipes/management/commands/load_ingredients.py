@@ -13,15 +13,11 @@ class Command(BaseCommand):
         with open(file_path, "r", encoding="utf-8") as file:
             ingredients_list = json.load(file)
             count = Ingredient.objects.count()
-            ingredients = [
-                Ingredient(**item) for item in ingredients_list
-            ]
+            ingredients = [Ingredient(**item) for item in ingredients_list]
 
-            Ingredient.objects.bulk_create(
-                ingredients,
-                ignore_conflicts=True)
+            Ingredient.objects.bulk_create(ingredients, ignore_conflicts=True)
             created_count = Ingredient.objects.count() - count
-            
+
             self.stdout.write(
                 self.style.SUCCESS(
                     f"Загружено {created_count} ингредиентов в базу данных"

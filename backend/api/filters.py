@@ -6,7 +6,7 @@ from django_filters import rest_framework as filters
 class RecipeFilter(FilterSet):
     is_favorited = BooleanFilter(method="filter_is_favorited")
     is_in_shopping_cart = BooleanFilter(method="filter_is_in_shopping_cart")
-    author = filters.NumberFilter(field_name='author__id')
+    author = filters.NumberFilter(field_name="author__id")
 
     class Meta:
         model = Recipe

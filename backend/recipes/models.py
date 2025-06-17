@@ -4,10 +4,8 @@ from django.core.validators import MinValueValidator
 
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=255,
-                            verbose_name="Название ингредиента")
-    measurement_unit = models.CharField(max_length=50,
-                                        verbose_name="Единица измерения")
+    name = models.CharField(max_length=255, verbose_name="Название ингредиента")
+    measurement_unit = models.CharField(max_length=50, verbose_name="Единица измерения")
 
     class Meta:
         verbose_name = "Ингредиент"
@@ -22,25 +20,23 @@ class Recipe(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="recipes",
-        verbose_name="Автор рецепта"
+        verbose_name="Автор рецепта",
     )
-    title = models.CharField(max_length=256,
-                             verbose_name="Название рецепта")
-    image = models.ImageField(upload_to="recipes/images/",
-                              verbose_name="Изображение рецепта")
+    title = models.CharField(max_length=256, verbose_name="Название рецепта")
+    image = models.ImageField(
+        upload_to="recipes/images/", verbose_name="Изображение рецепта"
+    )
     description = models.TextField(verbose_name="Описание рецепта")
     ingredients = models.ManyToManyField(
         Ingredient,
         through="RecipeIngredient",
         related_name="recipes",
-        verbose_name="Ингредиенты"
+        verbose_name="Ингредиенты",
     )
     preparation_time = models.PositiveSmallIntegerField(
-        verbose_name="Время приготовления (минуты)",
-        validators=[MinValueValidator(1)]
+        verbose_name="Время приготовления (минуты)", validators=[MinValueValidator(1)]
     )
-    date_created = models.DateTimeField(auto_now_add=True,
-                                        verbose_name="Дата создания")
+    date_created = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
     class Meta:
         verbose_name = "Рецепт"
@@ -51,10 +47,10 @@ class Recipe(models.Model):
 
 
 class RecipeIngredient(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
-                               verbose_name="Рецепт")
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE,
-                                   verbose_name="Ингредиент")
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name="Рецепт")
+    ingredient = models.ForeignKey(
+        Ingredient, on_delete=models.CASCADE, verbose_name="Ингредиент"
+    )
     amount = models.PositiveIntegerField(verbose_name="Количество ингредиента")
     measurement_unit = models.CharField(max_length=50, default="г")
 
@@ -72,13 +68,13 @@ class Favorite(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         verbose_name="Пользователь",
-        related_name="favorites"
+        related_name="favorites",
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
         verbose_name="Рецепт",
-        related_name="in_favorites"
+        related_name="in_favorites",
     )
 
 
@@ -87,23 +83,18 @@ class ShoppingCart(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         verbose_name="Пользователь",
-        related_name="shopping_carts"
+        related_name="shopping_carts",
     )
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
         verbose_name="Рецепт",
-        related_name="in_shopping_carts"
+        related_name="in_shopping_carts",
     )
     ingredients_snapshot = models.JSONField(
-        verbose_name="Снимок ингредиентов",
-        null=True,
-        blank=True
+        verbose_name="Снимок ингредиентов", null=True, blank=True
     )
-    date_added = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name="Дата добавления"
-    )
+    date_added = models.DateTimeField(auto_now_add=True, verbose_name="Дата добавления")
 
     class Meta:
         unique_together = ("user", "recipe")
@@ -120,7 +111,7 @@ class ShoppingCart(models.Model):
                 {
                     "name": ri.ingredient.name,
                     "unit": ri.ingredient.measurement_unit,
-                    "amount": ri.amount
+                    "amount": ri.amount,
                 }
                 for ri in self.recipe.recipeingredient_set.all()
             ]
