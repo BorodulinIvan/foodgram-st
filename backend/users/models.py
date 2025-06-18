@@ -35,16 +35,28 @@ class User(AbstractUser):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
 
+    class Meta:
+        verbose_name = "Пользователь"
+        verbose_name_plural = "Пользователи"
+        ordering = ['username']
+
     def __str__(self):
         return self.email
 
 
 class Follow(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="following")
-    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name="followers")
+    user = models.ForeignKey(User,
+                             on_delete=models.CASCADE,
+                             related_name="following")
+    author = models.ForeignKey(User,
+                               on_delete=models.CASCADE,
+                               related_name="followers")
 
     class Meta:
         unique_together = ("user", "author")
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
+        ordering = ['user']
 
     def __str__(self):
         return f"{self.user} follows {self.author}"

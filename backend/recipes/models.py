@@ -1,15 +1,22 @@
 from django.db import models
 from django.conf import settings
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
+
+
+MIN_VALUE_FOR_VALIDATOR = 1
+MAX_VALUE_FOR_VALIDATOR = 32000
 
 
 class Ingredient(models.Model):
-    name = models.CharField(max_length=255, verbose_name="Название ингредиента")
-    measurement_unit = models.CharField(max_length=50, verbose_name="Единица измерения")
+    name = models.CharField(max_length=255,
+                            verbose_name="Название ингредиента")
+    measurement_unit = models.CharField(max_length=50,
+                                        verbose_name="Единица измерения")
 
     class Meta:
         verbose_name = "Ингредиент"
         verbose_name_plural = "Ингредиенты"
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -34,13 +41,16 @@ class Recipe(models.Model):
         verbose_name="Ингредиенты",
     )
     preparation_time = models.PositiveSmallIntegerField(
-        verbose_name="Время приготовления (минуты)", validators=[MinValueValidator(1)]
+        verbose_name="Время приготовления (минуты)", validators=[
+        MinValueValidator(MIN_VALUE_FOR_VALIDATOR),
+        MaxValueValidator(MAX_VALUE_FOR_VALIDATOR),]
     )
     date_created = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
     class Meta:
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
+        ordering = ['title']
 
     def __str__(self):
         return self.title
@@ -51,13 +61,18 @@ class RecipeIngredient(models.Model):
     ingredient = models.ForeignKey(
         Ingredient, on_delete=models.CASCADE, verbose_name="Ингредиент"
     )
-    amount = models.PositiveIntegerField(verbose_name="Количество ингредиента")
+    amount = models.PositiveSmallIntegerField(
+        verbose_name="Количество ингредиента", validators=[
+            MinValueValidator(MIN_VALUE_FOR_VALIDATOR),
+            MaxValueValidator(MAX_VALUE_FOR_VALIDATOR),]
+    )
     measurement_unit = models.CharField(max_length=50, default="г")
 
     class Meta:
         unique_together = ("recipe", "ingredient")
         verbose_name = "Ингредиент в рецепте"
         verbose_name_plural = "Ингредиенты в рецепте"
+        ordering = ['recipe']
 
     def __str__(self):
         return f"{self.recipe}"
@@ -76,6 +91,14 @@ class Favorite(models.Model):
         verbose_name="Рецепт",
         related_name="in_favorites",
     )
+
+    class Meta:
+        verbose_name = "Избранное"
+        verbose_name_plural = "Избранные"
+        ordering = ['recipe']
+
+    def __str__(self):
+        return f"{self.recipe}"
 
 
 class ShoppingCart(models.Model):
@@ -100,6 +123,7 @@ class ShoppingCart(models.Model):
         unique_together = ("user", "recipe")
         verbose_name = "Список покупок"
         verbose_name_plural = "Списки покупок"
+        ordering = ['recipe']
 
     def __str__(self):
         return f"{self.user} added {self.recipe.title} to shopping cart"

@@ -101,11 +101,11 @@ class UserProfileView(DetailView):
         profile_user = self.get_object()
         user = self.request.user
 
-        context["recipes"] = Recipe.objects.filter(author=profile_user)
+        context["recipes"] = profile_user.recipes.all()
         context["can_follow"] = user.is_authenticated and user.id != profile_user.id
         context["is_following"] = (
             user.is_authenticated
-            and Follow.objects.filter(user=user, author=profile_user).exists()
+            and user.following.filter(author=profile_user).exists()
         )
         return context
 
@@ -117,9 +117,7 @@ class RecipeDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["cart_count"] = ShoppingCart.objects.filter(
-            user=self.request.user
-        ).count()
+        context["cart_count"] = self.request.user.shopping_carts.count()
         return context
 
 
@@ -130,7 +128,7 @@ class SubscriptionsView(ListView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Follow.objects.filter(user=self.request.user)
+        return self.request.user.following.all()
 
 
 class FavoritesView(APIView):
@@ -174,7 +172,7 @@ class FavoritesView(APIView):
         Favorite.objects.create(user=user, recipe=recipe)
         serializer = RecipeSummarySerializer(recipe, context={"request": request})
         serializer_data = serializer.data
-        serializer_data["cart_count"] = ShoppingCart.objects.filter(user=user).count()
+        serializer_data["cart_count"] = self.request.user.shopping_carts.count()
         return Response(serializer_data, status=status.HTTP_201_CREATED)
 
     def delete(self, request):
@@ -193,7 +191,7 @@ class FavoritesView(APIView):
             )
 
         user = request.user
-        favorite = Favorite.objects.filter(user=user, recipe=recipe)
+        favorite = user.favorites.filter(recipe=recipe)
         if favorite.exists():
             favorite.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -211,9 +209,9 @@ class ShoppingCartView(LoginRequiredMixin, View):
 
     def get(self, request):
         """Обработка GET-запроса (просмотр корзины)"""
-        cart_items = ShoppingCart.objects.filter(user=request.user).select_related(
+        cart_items = request.user.shopping_carts.select_related(
             "recipe"
-        )
+        ).all()
         return render(
             request,
             self.template_name,
@@ -251,7 +249,7 @@ class ShoppingCartView(LoginRequiredMixin, View):
         if not recipe_id:
             return self.get(request)
 
-        ShoppingCart.objects.filter(user=user, recipe_id=recipe_id).delete()
+        user.shopping_carts.filter(recipe_id=recipe_id).delete()
 
         return redirect("shopping_cart")
 
@@ -265,13 +263,13 @@ class CreateRecipeView(CreateView):
 
     def form_valid(self, form):
         form.instance.author = self.request.user
-        cart_count = ShoppingCart.objects.filter(user=self.request.user).count()
+        cart_count = self.request.user.shopping_carts.count()
         return self.render_to_response(self.get_context_data(cart_count=cart_count))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["cart_count"] = kwargs.get(
-            "cart_count", ShoppingCart.objects.filter(user=self.request.user).count()
+            "cart_count", self.request.user.shopping_carts.count()
         )
         return context
 
@@ -285,9 +283,7 @@ class EditRecipeView(UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["cart_count"] = ShoppingCart.objects.filter(
-            user=self.request.user
-        ).count()
+        context["cart_count"] = self.request.user.shopping_carts.count()
         return context
 
     def get_object(self, queryset=None):
@@ -417,8 +413,7 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = SetPasswordSerializer(
             data=request.data, context={"request": request}
         )
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         user.set_password(serializer.validated_data["new_password"])
         user.save()
@@ -553,7 +548,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             )
         user = request.user
         if request.method == "POST":
-            if Favorite.objects.filter(user=user, recipe=recipe).exists():
+            if user.favorites.filter(recipe=recipe).exists():
                 return Response(
                     {"error": "Рецепт уже в избранном"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -563,7 +558,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 favorite, context={"request": request}
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        favorite = Favorite.objects.filter(user=user, recipe=recipe)
+        favorite = user.favorites.filter(recipe=recipe)
         if favorite.exists():
             favorite.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -581,7 +576,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         recipe = self.get_object()
         user = request.user
 
-        if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
+        if user.shopping_carts.filter(recipe=recipe).exists():
             return Response(
                 {"error": "Рецепт уже в списке покупок"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -622,7 +617,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def download_shopping_cart(self, request):
         user = request.user
 
-        recipe_ids = ShoppingCart.objects.filter(user=user).values_list(
+        recipe_ids = user.shopping_carts.values_list(
             "recipe_id", flat=True
         )
 
