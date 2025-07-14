@@ -14,7 +14,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.shortcuts import render, redirect, get_object_or_404
 from users.models import User, Follow
-from recipes.models import Recipe, Ingredient, RecipeIngredient, Favorite, ShoppingCart
+from recipes.models import (Recipe, Ingredient, RecipeIngredient, Favorite,
+                            ShoppingCart)
 from api.serializers import (
     UserCreateSerializer,
     UserSerializer,
@@ -23,6 +24,7 @@ from api.serializers import (
     RecipeCreateSerializer,
     SetPasswordSerializer,
     RecipeDetailsSerializer,
+    UserProfileNoAuthSerializer,
     RecipeSummarySerializer,
     FavoriteRecipeSerializer,
     UserListSerializer,
@@ -37,7 +39,8 @@ from api.permissions import IsOwnerOrReadOnly
 from django.views.generic.edit import CreateView, UpdateView
 from django.views.generic.detail import DetailView
 from django.views.generic.list import ListView
-from django.contrib.auth.views import PasswordChangeView as AuthPasswordChangeView
+from django.contrib.auth.views import (PasswordChangeView as
+                                       AuthPasswordChangeView)
 from django.urls import reverse_lazy
 
 
@@ -69,9 +72,11 @@ class LoginView(views.APIView):
         user = authenticate(request, username=email, password=password)
         if user is not None:
             login(request, user)
-            return Response({"message": "Login successful"}, status=status.HTTP_200_OK)
+            return Response({"message": "Login successful"},
+                            status=status.HTTP_200_OK)
         return Response(
-            {"error": "Invalid credentials"}, status=status.HTTP_400_BAD_REQUEST
+            {"error": "Invalid credentials"},
+            status=status.HTTP_400_BAD_REQUEST
         )
 
 
@@ -102,7 +107,8 @@ class UserProfileView(DetailView):
         user = self.request.user
 
         context["recipes"] = profile_user.recipes.all()
-        context["can_follow"] = user.is_authenticated and user.id != profile_user.id
+        context["can_follow"] = (user.is_authenticated and
+                                 user.id != profile_user.id)
         context["is_following"] = (
             user.is_authenticated
             and user.following.filter(author=profile_user).exists()
@@ -153,7 +159,8 @@ class FavoritesView(APIView):
         recipe_id = request.data.get("id")
         if not recipe_id:
             return Response(
-                {"error": "Не указан ID рецепта"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Не указан ID рецепта"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
@@ -166,11 +173,13 @@ class FavoritesView(APIView):
         user = request.user
         if recipe.in_favorites.filter(user=user).exists():
             return Response(
-                {"error": "Рецепт уже в избранном"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Рецепт уже в избранном"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         Favorite.objects.create(user=user, recipe=recipe)
-        serializer = RecipeSummarySerializer(recipe, context={"request": request})
+        serializer = RecipeSummarySerializer(recipe, context={"request":
+                                                              request})
         serializer_data = serializer.data
         serializer_data["cart_count"] = self.request.user.shopping_carts.count()
         return Response(serializer_data, status=status.HTTP_201_CREATED)
@@ -180,7 +189,8 @@ class FavoritesView(APIView):
         recipe_id = request.data.get("id")
         if not recipe_id:
             return Response(
-                {"error": "Не указан ID рецепта"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Не указан ID рецепта"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
@@ -257,14 +267,16 @@ class ShoppingCartView(LoginRequiredMixin, View):
 class CreateRecipeView(CreateView):
     model = Recipe
     template_name = "create_recipe.html"
-    fields = ["title", "image", "description", "ingredients", "preparation_time"]
+    fields = ["title", "image", "description", "ingredients",
+              "preparation_time"]
     success_url = reverse_lazy("recipe_list")
     permission_classes = [IsAuthenticated]
 
     def form_valid(self, form):
         form.instance.author = self.request.user
         cart_count = self.request.user.shopping_carts.count()
-        return self.render_to_response(self.get_context_data(cart_count=cart_count))
+        return self.render_to_response(
+            self.get_context_data(cart_count=cart_count))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -277,7 +289,8 @@ class CreateRecipeView(CreateView):
 class EditRecipeView(UpdateView):
     model = Recipe
     template_name = "edit_recipe.html"
-    fields = ["title", "image", "description", "ingredients", "preparation_time"]
+    fields = ["title", "image", "description", "ingredients",
+              "preparation_time"]
     success_url = reverse_lazy("recipe_list")
     permission_classes = [IsAuthenticated]
 
@@ -311,6 +324,8 @@ class UserViewSet(viewsets.ModelViewSet):
             if not self.request.user.is_authenticated:
                 return UserPublicSerializer
             return UserListSerializer
+        if self.action in ["retrieve", "me"]:
+            return UserProfileNoAuthSerializer
         return UserSerializer
 
     def list(self, request, *args, **kwargs):
@@ -326,14 +341,30 @@ class UserViewSet(viewsets.ModelViewSet):
 
         return super().list(request, *args, **kwargs)
 
-    @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
+        assert lookup_url_kwarg in self.kwargs, (
+            'Expected view %s to be called with a URL keyword argument '
+            'named "%s". Fix your URL conf, or set the `.lookup_field` '
+            'attribute on the view correctly.' %
+            (self.__class__.__name__, lookup_url_kwarg)
+        )
+        filter_kwargs = {self.lookup_field: self.kwargs[lookup_url_kwarg]}
+        obj = get_object_or_404(queryset, **filter_kwargs)
+        self.check_object_permissions(self.request, obj)
+        return obj
+
+    @action(detail=False, methods=["get"],
+            permission_classes=[IsAuthenticated])
     def me(self, request):
-        serializer = UserSerializer(request.user, context={"request": request})
+        serializer = self.get_serializer(request.user, context={"request":
+                                                                request})
         return Response(serializer.data)
 
     def retrieve(self, request, pk=None):
         user = get_object_or_404(User, pk=pk)
-        serializer = UserSerializer(user, context={"request": request})
+        serializer = self.get_serializer(user, context={"request": request})
         return Response(serializer.data)
 
     @action(
@@ -360,7 +391,8 @@ class UserViewSet(viewsets.ModelViewSet):
                 user.save()
 
                 avatar_url = request.build_absolute_uri(user.avatar.url)
-                serializer = AvatarResponseSerializer(data={"avatar": avatar_url})
+                serializer = AvatarResponseSerializer(data={"avatar":
+                                                            avatar_url})
                 serializer.is_valid(raise_exception=True)
 
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -374,16 +406,19 @@ class UserViewSet(viewsets.ModelViewSet):
         elif request.method == "DELETE":
             if not user.avatar:
                 return Response(
-                    {"error": "No avatar to delete"}, status=status.HTTP_400_BAD_REQUEST
+                    {"error": "No avatar to delete"},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
             user.avatar.delete()
             user.avatar = None
             user.save()
 
-            return Response({"avatar": None}, status=status.HTTP_204_NO_CONTENT)
+            return Response({"avatar": None},
+                            status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=False, methods=["post"], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=["post"],
+            permission_classes=[IsAuthenticated])
     def set_password(self, request):
         """Смена пароля текущего пользователя"""
         user = request.user
@@ -452,10 +487,12 @@ class UserViewSet(viewsets.ModelViewSet):
         page = self.paginate_queryset(queryset)
 
         if page is not None:
-            serializer = FollowSerializer(page, many=True, context={"request": request})
+            serializer = FollowSerializer(page, many=True,
+                                          context={"request": request})
             return self.get_paginated_response(serializer.data)
 
-        serializer = FollowSerializer(queryset, many=True, context={"request": request})
+        serializer = FollowSerializer(queryset, many=True,
+                                      context={"request": request})
         return Response(serializer.data)
 
 
@@ -492,7 +529,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context.update(
-            {"request": self.request, "format": self.format_kwarg, "view": self}
+            {"request": self.request, "format": self.format_kwarg,
+             "view": self}
         )
         return context
 
@@ -502,6 +540,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if is_favorited == "1" and not self.request.user.is_authenticated:
             return queryset.none()
         return queryset
+
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        obj = get_object_or_404(queryset, pk=self.kwargs.get('pk'))
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -522,7 +566,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         headers = self.get_success_headers(detailed_serializer.data)
         return Response(
-            detailed_serializer.data, status=status.HTTP_201_CREATED, headers=headers
+            detailed_serializer.data, status=status.HTTP_201_CREATED,
+            headers=headers
         )
 
     def update(self, request, *args, **kwargs):
@@ -536,35 +581,32 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, context={"request": request})
         return Response(serializer.data)
 
-    @action(
-        detail=True, methods=["post", "delete"], permission_classes=[IsAuthenticated]
-    )
+    @action(detail=True, methods=['post', 'delete'],
+            permission_classes=[IsAuthenticated])
     def favorite(self, request, pk=None):
-        try:
-            recipe = self.get_object()
-        except Recipe.DoesNotExist:
-            return Response(
-                {"error": "Рецепт не найден"}, status=status.HTTP_404_NOT_FOUND
-            )
-        user = request.user
-        if request.method == "POST":
-            if user.favorites.filter(recipe=recipe).exists():
+        recipe = get_object_or_404(Recipe, pk=pk)
+        if request.method == 'POST':
+            if Favorite.objects.filter(user=request.user,
+                                       recipe=recipe).exists():
                 return Response(
-                    {"error": "Рецепт уже в избранном"},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    {"detail": "Рецепт уже в избранном."},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
-            favorite = Favorite.objects.create(user=user, recipe=recipe)
-            serializer = FavoriteRecipeSerializer(
-                favorite, context={"request": request}
-            )
+            favorite = Favorite.objects.create(user=request.user,
+                                               recipe=recipe)
+            serializer = RecipeSummarySerializer(recipe, context={'request':
+                                                                  request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        favorite = user.favorites.filter(recipe=recipe)
-        if favorite.exists():
+        elif request.method == 'DELETE':
+            favorite = Favorite.objects.filter(user=request.user,
+                                               recipe=recipe)
+            if not favorite.exists():
+                return Response(
+                    {"detail": "Рецепт не в избранном."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             favorite.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(
-            {"error": "Рецепт не в избранном"}, status=status.HTTP_400_BAD_REQUEST
-        )
 
     @action(
         detail=True,
@@ -588,7 +630,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
             "id": recipe.id,
             "name": recipe.title,
             "image": (
-                request.build_absolute_uri(recipe.image.url) if recipe.image else None
+                request.build_absolute_uri(recipe.image.url)
+                if recipe.image else None
             ),
             "cooking_time": recipe.preparation_time,
         }
@@ -648,11 +691,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return response
 
     @action(
-        detail=True, methods=["get"], url_path="get-link", permission_classes=[AllowAny]
+        detail=True, methods=["get"], url_path="get-link",
+        permission_classes=[AllowAny]
     )
     def get_link(self, request, pk=None):
         recipe = self.get_object()
         base_url = request.build_absolute_uri("/")[:-1]
         return Response(
-            {"short-link": f"{base_url}/recipes/{recipe.id}"}, status=status.HTTP_200_OK
+            {"short-link": f"{base_url}/recipes/{recipe.id}"},
+            status=status.HTTP_200_OK
         )
