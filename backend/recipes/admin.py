@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django import forms
-from .models import Recipe, Ingredient, RecipeIngredient, Favorite, ShoppingCart
+from .models import (Recipe, Ingredient, RecipeIngredient, Favorite,
+                     ShoppingCart)
 
 
 class RecipeForm(forms.ModelForm):

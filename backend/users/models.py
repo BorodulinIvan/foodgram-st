@@ -22,7 +22,8 @@ class CustomUserManager(BaseUserManager):
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     validator = RegexValidator(regex=r"^[\w.@+-]+\Z")
-    username = models.CharField(max_length=150, unique=True, validators=[validator])
+    username = models.CharField(max_length=150, unique=True,
+                                validators=[validator])
     first_name = models.CharField(max_length=150)
     last_name = models.CharField(max_length=150)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)

@@ -212,10 +212,6 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
 
         seen_ids = set()
         for item in value:
-            if int(item["amount"]) <= 0:
-                raise serializers.ValidationError(
-                    "Количество должно быть положительным."
-                )
 
             ingredient_id = item["id"]
             if ingredient_id in seen_ids:
@@ -290,7 +286,7 @@ class UserShortSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        return Follow.objects.filter(user=request.user, author=obj).exists()
+        return obj.followers.filter(user=request.user).exists()
 
     def get_avatar(self, obj):
         request = self.context.get('request')

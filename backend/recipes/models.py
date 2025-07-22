@@ -45,7 +45,8 @@ class Recipe(models.Model):
         MinValueValidator(MIN_VALUE_FOR_VALIDATOR),
         MaxValueValidator(MAX_VALUE_FOR_VALIDATOR),]
     )
-    date_created = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
+    date_created = models.DateTimeField(auto_now_add=True,
+                                        verbose_name="Дата создания")
 
     class Meta:
         verbose_name = "Рецепт"
@@ -57,7 +58,8 @@ class Recipe(models.Model):
 
 
 class RecipeIngredient(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, verbose_name="Рецепт")
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE,
+                               verbose_name="Рецепт")
     ingredient = models.ForeignKey(
         Ingredient, on_delete=models.CASCADE, verbose_name="Ингредиент"
     )
@@ -117,7 +119,8 @@ class ShoppingCart(models.Model):
     ingredients_snapshot = models.JSONField(
         verbose_name="Снимок ингредиентов", null=True, blank=True
     )
-    date_added = models.DateTimeField(auto_now_add=True, verbose_name="Дата добавления")
+    date_added = models.DateTimeField(auto_now_add=True,
+                                      verbose_name="Дата добавления")
 
     class Meta:
         unique_together = ("user", "recipe")

@@ -36,6 +36,8 @@ urlpatterns = [
     path("favorites/", FavoritesView.as_view(), name="favorites"),
     path("shopping_cart/", ShoppingCartView.as_view(), name="shopping_cart"),
     path("create_recipe/", CreateRecipeView.as_view(), name="create_recipe"),
-    path("edit_recipe/<int:id>/", EditRecipeView.as_view(), name="edit_recipe"),
-    path("password_change/", PasswordChangeView.as_view(), name="password_change"),
+    path("edit_recipe/<int:id>/", EditRecipeView.as_view(),
+         name="edit_recipe"),
+    path("password_change/", PasswordChangeView.as_view(),
+         name="password_change"),
 ]
